@@ -1,2 +1,2 @@
-# csb-core
+# edfs
 Core library for CSB management

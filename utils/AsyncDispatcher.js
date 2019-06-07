@@ -20,7 +20,7 @@ function AsyncDispatcher(finalCallback) {
 		}
 
 		if(--started <= 0) {
-            callCallback()
+            return callCallback();
 		}
 	}
 
@@ -37,13 +37,13 @@ function AsyncDispatcher(finalCallback) {
 	        results = undefined;
         }
 
-        finalCallback(errors, results)
+        finalCallback(errors, results);
     }
 
 	return {
 		dispatchEmpty,
 		markOneAsFinished
-	}
+	};
 }
 
 module.exports = AsyncDispatcher;

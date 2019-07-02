@@ -35,9 +35,7 @@ function MerkleTree(leaves, hashFunction) {
             --exponent;
         }
 
-        tree = tree.filter( (el) => {
-            return el !== null && typeof el !== "undefined";
-        });
+        tree = tree.filter( (el) => el !== null && typeof el !== "undefined");
 
         return tree;
     };

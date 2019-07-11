@@ -1,5 +1,6 @@
 const crypto = require('pskcrypto');
 const path = require('path');
+const fs = require('fs');
 const CSBIdentifier = require("../lib/CSBIdentifier");
 
 function DseedCage(localFolder) {
@@ -7,7 +8,7 @@ function DseedCage(localFolder) {
 	const dseedPath = path.join(dseedFolder, 'dseed');
 
 	function loadDseedBackups(pin, callback) {
-		$$.ensureFolderExists(dseedFolder, (err) => {
+		fs.mkdir(dseedFolder, {recursive: true}, (err) => {
 			if (err) {
 				return callback(err);
 			}
@@ -34,7 +35,7 @@ function DseedCage(localFolder) {
 	}
 
 	function saveDseedBackups(pin, csbIdentifier, backups, callback) {
-		$$.ensureFolderExists(dseedFolder, (err) => {
+		fs.mkdir(dseedFolder, {recursive: true}, (err) => {
 			if (err) {
 				return callback(err);
 			}

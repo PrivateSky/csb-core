@@ -1,13 +1,13 @@
 require("./flows/BricksManager");
 
 function EDFSMiddleware(server) {
-    server.post('/EDFS', function (req, res) {
+    server.post('/EDFS', (req, res) => {
         //preventing illegal characters passing as fileId
         res.statusCode = 400;
         res.end();
     });
 
-    server.post('/:fileId', function (req, res) {
+    server.post('/:fileId', (req, res) => {
         $$.flow.start("BricksManager").write(req.params.fileId, req, function (err, result) {
             res.statusCode = 201;
             if (err) {
@@ -22,7 +22,7 @@ function EDFSMiddleware(server) {
 
     });
 
-    server.get('/:fileId', function (req, res) {
+    server.get('/:fileId', (req, res) => {
         res.setHeader("content-type", "application/octet-stream");
         $$.flow.start("BricksManager").read(req.params.fileId, res, function (err, result) {
             res.statusCode = 200;

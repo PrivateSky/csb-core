@@ -140,7 +140,7 @@ $$.flow.describe("BricksManager", {
         return true;
     },
     __ensureFolderStructure: function(folder, callback){
-        $$.ensureFolderExists(folder, callback);
+        fs.mkdir(folder, {recursive: true}, callback);
     },
     __writeFile: function(readStream, folderPath, fileName, callback){
         const hash = new PskHash();

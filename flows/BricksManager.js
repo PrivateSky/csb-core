@@ -55,6 +55,31 @@ $$.flow.describe("BricksManager", {
             }
         });
     },
+    addAlias: function (filename, alias, callback) {
+        if(!this.__verifyFileName(fileName, callback)){
+            return;
+        }
+
+        if(!alias) {
+            return callback(new Error("No alias was provided"));
+        }
+
+        if(!this.aliases){
+            this.aliases = {};
+        }
+
+        this.aliases[alias] = filename;
+
+        callback();
+    },
+    writeWithAlias: function (alias, readStream, callback) {
+        const fileName = this.__getFileName(alias, callback);
+        this.write(fileName, readStream, callback);
+    },
+    readWithAlias: function (alias, writeStream, callback) {
+        const fileName = this.__getFileName(alias, callback);
+        this.read(fileName, writeStream, callback);
+    },
     readVersion: function(fileName, fileVersion, writeFileStream, callback) {
         if(!this.__verifyFileName(fileName, callback)){
             return;
@@ -283,7 +308,18 @@ $$.flow.describe("BricksManager", {
             console.error(err);
         }
     },
-    __verifyFileExistence: function(filePath, callback){
+    __verifyFileExistence: function(filePath, callback) {
         fs.stat(filePath, callback);
-    }
+    },
+    __getFileName: function (alias, callback) {
+        if(!this.aliases){
+            return callback(new Error("No files have been associated with aliases"));
+        }
+        const fileName = this.aliases[alias];
+        if(!fileName) {
+            return callback(new Error("The specified alias was not associated with any file"));
+        }else{
+            return fileName;
+        }
+    },
 });

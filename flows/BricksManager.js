@@ -7,64 +7,65 @@ const FILE_SEPARATOR = '-';
 let rootfolder;
 
 $$.flow.describe("BricksManager", {
-    init: function(rootFolder, callback){
-        if(!rootFolder){
+    init: function (rootFolder, callback) {
+        if (!rootFolder) {
             callback(new Error("No root folder specified!"));
             return;
         }
         rootFolder = path.resolve(rootFolder);
-        this.__ensureFolderStructure(rootFolder, function(err, path){
+        this.__ensureFolderStructure(rootFolder, function (err, path) {
             rootfolder = rootFolder;
             callback(err, rootFolder);
         });
     },
-    write: function(fileName, readFileStream, callback){
-        if(!this.__verifyFileName(fileName, callback)){
+    write: function (fileName, readFileStream, callback) {
+        if (!this.__verifyFileName(fileName, callback)) {
             return;
         }
 
-        if(!readFileStream || !readFileStream.pipe || typeof readFileStream.pipe !== "function"){
+        if (!readFileStream || !readFileStream.pipe || typeof readFileStream.pipe !== "function") {
             callback(new Error("Something wrong happened"));
             return;
         }
 
         const folderName = path.join(rootfolder, fileName.substr(0, folderNameSize), fileName);
 
-        const serial = this.serial(() => {});
+        const serial = this.serial(() => {
+        });
 
         serial.__ensureFolderStructure(folderName, serial.__progress);
         serial.__writeFile(readFileStream, folderName, fileName, callback);
     },
-    read: function(fileName, writeFileStream, callback){
-        if(!this.__verifyFileName(fileName, callback)){
+    read: function (fileName, writeFileStream, callback) {
+        if (!this.__verifyFileName(fileName, callback)) {
             return;
         }
 
         const folderPath = path.join(rootfolder, fileName.substr(0, folderNameSize));
         const filePath = path.join(folderPath, fileName);
         this.__verifyFileExistence(filePath, (err, result) => {
-            if(!err){
+            if (!err) {
                 this.__getLatestVersionNameOfFile(filePath, (err, fileVersion) => {
-                    if(err) {
+                    if (err) {
                         return callback(err);
                     }
                     this.__readFile(writeFileStream, path.join(filePath, fileVersion.fullVersion), callback);
                 });
-            }else{
+            } else {
                 callback(new Error("No file found."));
             }
         });
     },
     addAlias: function (filename, alias, callback) {
-        if(!this.__verifyFileName(fileName, callback)){
+        if (!this.__verifyFileName(fileName, callback)) {
             return;
         }
 
-        if(!alias) {
+        if (!alias) {
             return callback(new Error("No alias was provided"));
         }
 
-        if(!this.aliases){
+        if (!this.aliases) {
             this.aliases = {};
         }
 
@@ -80,17 +81,17 @@ $$.flow.describe("BricksManager", {
         const fileName = this.__getFileName(alias, callback);
         this.read(fileName, writeStream, callback);
     },
-    readVersion: function(fileName, fileVersion, writeFileStream, callback) {
-        if(!this.__verifyFileName(fileName, callback)){
+    readVersion: function (fileName, fileVersion, writeFileStream, callback) {
+        if (!this.__verifyFileName(fileName, callback)) {
             return;
         }
 
         const folderPath = path.join(rootfolder, fileName.substr(0, folderNameSize));
         const filePath = path.join(folderPath, fileName, fileVersion);
         this.__verifyFileExistence(filePath, (err, result) => {
-            if(!err){
+            if (!err) {
                 this.__readFile(writeFileStream, path.join(filePath), callback);
-            }else{
+            } else {
                 callback(new Error("No file found."));
             }
         });
@@ -118,7 +119,11 @@ $$.flow.describe("BricksManager", {
                         return;
                     }
 
-                    filesData.push({version: files[i], creationTime: stats.birthtime, creationTimeMs: stats.birthtimeMs});
+                    filesData.push({
+                        version: files[i],
+                        creationTime: stats.birthtime,
+                        creationTimeMs: stats.birthtimeMs
+                    });
 
                     resolvedFiles += 1;
 
@@ -135,7 +140,7 @@ $$.flow.describe("BricksManager", {
             }
         });
     },
-    compareVersions: function(bodyStream, callback) {
+    compareVersions: function (bodyStream, callback) {
         let body = '';
 
         bodyStream.on('data', (data) => {
@@ -143,81 +148,78 @@ $$.flow.describe("BricksManager", {
         });
 
         bodyStream.on('end', () => {
-           try {
-               body = JSON.parse(body);
-               this.__compareVersions(body, callback);
-           } catch (e) {
+            try {
+                body = JSON.parse(body);
+                this.__compareVersions(body, callback);
+            } catch (e) {
                 callback(e);
-           }
+            }
         });
     },
-    __verifyFileName: function(fileName, callback){
-        if(!fileName || typeof fileName != "string"){
+    __verifyFileName: function (fileName, callback) {
+        if (!fileName || typeof fileName != "string") {
             callback(new Error("No fileId specified."));
             return;
         }
 
-        if(fileName.length < folderNameSize){
-            callback(new Error("FileId too small. "+fileName));
+        if (fileName.length < folderNameSize) {
+            callback(new Error("FileId too small. " + fileName));
             return;
         }
 
         return true;
     },
-    __ensureFolderStructure: function(folder, callback){
+    __ensureFolderStructure: function (folder, callback) {
         fs.mkdir(folder, {recursive: true}, callback);
     },
-    __writeFile: function(readStream, folderPath, fileName, callback){
-        const hash = new PskHash();
+    __writeFile: function (readStream, folderPath, fileName, callback) {
+        const hash = require("crypto").createHash("sha256");
         const filePath = path.join(folderPath, fileName);
         fs.access(filePath, (err) => {
             if (err) {
-                if (err.code === "ENOENT") {
-                    readStream.on('data', (data) => {
-                        hash.update(data);
-                    });
+                readStream.on('data', (data) => {
+                    hash.update(data);
+                });
 
+                const writeStream = fs.createWriteStream(filePath, {mode: 0o444});
 
-                    const writeStream = fs.createWriteStream(filePath, {mode: 0o444});
+                writeStream.on("finish", () => {
+                    const hashDigest = hash.digest("hex");
+                    if (hashDigest !== fileName) {
+                        fs.unlink(filePath, (err) => {
+                            if (err) {
+                                return callback(err);
+                            } else {
+                                return callback(new Error("Content hash and filename are not the same"));
+                            }
+                        });
+                    }
+                });
 
-                    writeStream.on("finish", () => {
-                        const hashDigest = hash.digest().toString('hex');
-                        if(hashDigest !== fileName){
-                            fs.unlink(filePath, (err) => {
-                                if (err) {
-                                    return callback(err);
-                                }else{
-                                    return callback(new Error("Content hash and filename are not the same"));
-                                }
-                            });
-                        }
-                    });
+                writeStream.on("error", function () {
+                    writeStream.close();
+                    readStream.close();
+                    callback(...arguments);
+                });
 
-                    writeStream.on("error", function () {
-                        writeStream.close();
-                        readStream.close();
-                        callback(...arguments);
-                    });
+                readStream.pipe(writeStream);
+            } else {
+                callback();
 
-                    readStream.pipe(writeStream);
-                }else{
-                    return callback(err);
-                }
             }
-
-            callback();
         });
     },
     __getNextVersionFileName: function (folderPath, fileName, callback) {
         this.__getLatestVersionNameOfFile(folderPath, (err, fileVersion) => {
-            if(err) {
+            if (err) {
                 console.error(err);
                 return callback(err);
             }
 
             callback(undefined, fileVersion.numericVersion + 1);
         });
-    },
+    }
+    ,
     __getLatestVersionNameOfFile: function (folderPath, callback) {
         fs.readdir(folderPath, (err, files) => {
             if (err) {
@@ -228,7 +230,7 @@ $$.flow.describe("BricksManager", {
 
             let fileVersion = {numericVersion: 0, fullVersion: '0' + FILE_SEPARATOR};
 
-            if(files.length > 0) {
+            if (files.length > 0) {
                 try {
                     const allVersions = files.map(file => file.split(FILE_SEPARATOR)[0]);
                     const latestFile = this.__maxElement(allVersions);
@@ -245,26 +247,28 @@ $$.flow.describe("BricksManager", {
 
             callback(undefined, fileVersion);
         });
-    },
+    }
+    ,
     __maxElement: function (numbers) {
         let max = numbers[0];
 
-        for(let i = 1; i < numbers.length; ++i) {
+        for (let i = 1; i < numbers.length; ++i) {
             max = Math.max(max, numbers[i]);
         }
 
-        if(isNaN(max)) {
+        if (isNaN(max)) {
             throw new Error('Invalid element found');
         }
 
         return max;
-    },
+    }
+    ,
     __compareVersions: function (files, callback) {
         const filesWithChanges = [];
         const entries = Object.entries(files);
         let remaining = entries.length;
 
-        if(entries.length === 0) {
+        if (entries.length === 0) {
             callback(undefined, filesWithChanges);
             return;
         }
@@ -272,7 +276,7 @@ $$.flow.describe("BricksManager", {
         entries.forEach(([fileName, fileHash]) => {
             this.getVersionsForFile(fileName, (err, versions) => {
                 if (err) {
-                    if(err.code === 'ENOENT') {
+                    if (err.code === 'ENOENT') {
                         versions = [];
                     } else {
                         callback(err);
@@ -294,32 +298,37 @@ $$.flow.describe("BricksManager", {
                 }
             })
         });
-    },
-    __readFile: function(writeFileStream, filePath, callback){
+    }
+    ,
+    __readFile: function (writeFileStream, filePath, callback) {
         const readStream = fs.createReadStream(filePath);
 
         writeFileStream.on("finish", callback);
         writeFileStream.on("error", callback);
 
         readStream.pipe(writeFileStream);
-    },
-    __progress: function(err, result){
-        if(err){
+    }
+    ,
+    __progress: function (err, result) {
+        if (err) {
             console.error(err);
         }
-    },
-    __verifyFileExistence: function(filePath, callback) {
+    }
+    ,
+    __verifyFileExistence: function (filePath, callback) {
         fs.stat(filePath, callback);
-    },
+    }
+    ,
     __getFileName: function (alias, callback) {
-        if(!this.aliases){
+        if (!this.aliases) {
             return callback(new Error("No files have been associated with aliases"));
         }
         const fileName = this.aliases[alias];
-        if(!fileName) {
+        if (!fileName) {
             return callback(new Error("The specified alias was not associated with any file"));
-        }else{
+        } else {
             return fileName;
         }
-    },
+    }
+    ,
 });

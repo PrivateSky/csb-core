@@ -1,11 +1,6 @@
 require("./flows/BricksManager");
 
 function EDFSMiddleware(server) {
-    server.post('/EDFS', (req, res) => {
-        //preventing illegal characters passing as fileId
-        res.statusCode = 400;
-        res.end();
-    });
 
     server.post('/:fileId', (req, res) => {
         $$.flow.start("BricksManager").write(req.params.fileId, req, (err, result) => {

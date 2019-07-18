@@ -28,7 +28,7 @@ $$.flow.describe("BricksManager", {
             return;
         }
 
-        const folderName = path.join(rootfolder, fileName.substr(0, folderNameSize), fileName);
+        const folderName = path.join(rootfolder, fileName.substr(0, folderNameSize));
 
         const serial = this.serial(() => {
         });
@@ -45,12 +45,7 @@ $$.flow.describe("BricksManager", {
         const filePath = path.join(folderPath, fileName);
         this.__verifyFileExistence(filePath, (err, result) => {
             if (!err) {
-                this.__getLatestVersionNameOfFile(filePath, (err, fileVersion) => {
-                    if (err) {
-                        return callback(err);
-                    }
-                    this.__readFile(writeFileStream, path.join(filePath, fileVersion.fullVersion), callback);
-                });
+                this.__readFile(writeFileStream, filePath, callback);
             } else {
                 callback(new Error("No file found."));
             }
@@ -316,7 +311,7 @@ $$.flow.describe("BricksManager", {
     }
     ,
     __verifyFileExistence: function (filePath, callback) {
-        fs.stat(filePath, callback);
+        fs.access(filePath, callback);
     }
     ,
     __getFileName: function (alias, callback) {

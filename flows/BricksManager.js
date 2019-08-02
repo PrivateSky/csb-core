@@ -95,13 +95,11 @@ $$.flow.describe("BricksManager", {
     },
     writeWithAlias: function (alias, readStream, callback) {
         const fileName = encodeURIComponent(crypto.randomBytes(20).toString("base64"));
-        console.log("writeWith alias", fileName);
         this.write(fileName, readStream, (err, fileHash) => {
             if (err) {
                 return callback(err);
             }
 
-            console.log("finished writing. This is the hash", fileHash);
             this.__renameFile(fileName, fileHash, (err) => {
                 if (err) {
                     return callback(err);
@@ -114,8 +112,6 @@ $$.flow.describe("BricksManager", {
                 if(!aliases[alias].includes(fileHash)) {
                     aliases[alias].push(fileHash);
                 }
-
-                console.log("Aliases", aliases);
 
                 callback();
             });

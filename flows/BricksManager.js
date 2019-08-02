@@ -1,10 +1,12 @@
 const path = require("path");
 const fs = require("fs");
+const crypto = require("crypto");
 const PskHash = require('pskcrypto').PskHash;
 
 const folderNameSize = process.env.FOLDER_NAME_SIZE || 5;
 const FILE_SEPARATOR = '-';
 let rootfolder;
+let aliases = {};
 
 $$.flow.describe("BricksManager", {
     init: function (rootFolder, callback) {
@@ -51,29 +53,76 @@ $$.flow.describe("BricksManager", {
             }
         });
     },
-    addAlias: function (filename, alias, callback) {
+    addAlias: function (fileName, readStream, callback) {
         if (!this.__verifyFileName(fileName, callback)) {
             return;
         }
 
-        if (!alias) {
-            return callback(new Error("No alias was provided"));
-        }
+        this.__streamToString(readStream, (err, alias) => {
+            if (err) {
+                return callback(err);
+            }
+            if (!alias) {
+                return callback(new Error("No alias was provided"));
+            }
 
-        if (!this.aliases) {
-            this.aliases = {};
-        }
+            if (!aliases[alias]) {
+                aliases[alias] = [];
+            }
 
-        this.aliases[alias] = filename;
+            aliases[alias].push(fileName);
+            callback();
+        });
+    },
+    writeWithHash: function (fileHash, readStream, callback) {
+        this.write(fileHash, readStream, (err, computedDigest) => {
+            if (err) {
+                return callback(err);
+            }
 
-        callback();
+            if (fileHash !== computedDigest) {
+                fs.unlink(fileHash, (err) => {
+                    if (err) {
+                        return callback(err);
+                    }
+
+                    callback(new Error("The specified file hash is incorrect"));
+                });
+            }
+
+            callback();
+        });
     },
     writeWithAlias: function (alias, readStream, callback) {
-        const fileName = this.__getFileName(alias, callback);
-        this.write(fileName, readStream, callback);
+        const fileName = encodeURIComponent(crypto.randomBytes(20).toString("base64"));
+        console.log("writeWith alias", fileName);
+        this.write(fileName, readStream, (err, fileHash) => {
+            if (err) {
+                return callback(err);
+            }
+
+            console.log("finished writing. This is the hash", fileHash);
+            this.__renameFile(fileName, fileHash, (err) => {
+                if (err) {
+                    return callback(err);
+                }
+
+                if (typeof aliases[alias] === "undefined") {
+                    aliases[alias] = [];
+                }
+
+                if(!aliases[alias].includes(fileHash)) {
+                    aliases[alias].push(fileHash);
+                }
+
+                console.log("Aliases", aliases);
+
+                callback();
+            });
+        });
     },
     readWithAlias: function (alias, writeStream, callback) {
-        const fileName = this.__getFileName(alias, callback);
+        const fileName = this.__getFileName(alias);
         this.read(fileName, writeStream, callback);
     },
     readVersion: function (fileName, fileVersion, writeFileStream, callback) {
@@ -179,16 +228,7 @@ $$.flow.describe("BricksManager", {
                 const writeStream = fs.createWriteStream(filePath, {mode: 0o444});
 
                 writeStream.on("finish", () => {
-                    const hashDigest = hash.digest("hex");
-                    if (hashDigest !== fileName) {
-                        fs.unlink(filePath, (err) => {
-                            if (err) {
-                                return callback(err);
-                            } else {
-                                return callback(new Error("Content hash and filename are not the same"));
-                            }
-                        });
-                    }
+                    callback(undefined, hash.digest("hex"));
                 });
 
                 writeStream.on("error", function () {
@@ -213,8 +253,7 @@ $$.flow.describe("BricksManager", {
 
             callback(undefined, fileVersion.numericVersion + 1);
         });
-    }
-    ,
+    },
     __getLatestVersionNameOfFile: function (folderPath, callback) {
         fs.readdir(folderPath, (err, files) => {
             if (err) {
@@ -242,8 +281,7 @@ $$.flow.describe("BricksManager", {
 
             callback(undefined, fileVersion);
         });
-    }
-    ,
+    },
     __maxElement: function (numbers) {
         let max = numbers[0];
 
@@ -256,8 +294,7 @@ $$.flow.describe("BricksManager", {
         }
 
         return max;
-    }
-    ,
+    },
     __compareVersions: function (files, callback) {
         const filesWithChanges = [];
         const entries = Object.entries(files);
@@ -293,8 +330,7 @@ $$.flow.describe("BricksManager", {
                 }
             })
         });
-    }
-    ,
+    },
     __readFile: function (writeFileStream, filePath, callback) {
         const readStream = fs.createReadStream(filePath);
 
@@ -302,28 +338,87 @@ $$.flow.describe("BricksManager", {
         writeFileStream.on("error", callback);
 
         readStream.pipe(writeFileStream);
-    }
-    ,
+    },
     __progress: function (err, result) {
         if (err) {
             console.error(err);
         }
-    }
-    ,
+    },
     __verifyFileExistence: function (filePath, callback) {
         fs.access(filePath, callback);
-    }
-    ,
-    __getFileName: function (alias, callback) {
-        if (!this.aliases) {
-            return callback(new Error("No files have been associated with aliases"));
+    },
+    __getFileName: function (alias) {
+        return aliases[alias][aliases.length - 1];
+    },
+    __streamToString: function (readStream, callback) {
+        let str = '';
+        readStream.on("data", (chunk) => {
+            str += chunk;
+        });
+
+        readStream.on("end", () => {
+            callback(undefined, str);
+        });
+
+        readStream.on("error", callback);
+    },
+    __renameFile: function (oldFileName, newFileName, callback) {
+        const oldFolderPath = path.join(rootfolder, path.basename(oldFileName).substring(0, folderNameSize));
+        const newFolderPath = path.join(rootfolder, path.basename(newFileName).substring(0, folderNameSize));
+        const oldFilePath = path.join(oldFolderPath, oldFileName);
+        const newFilePath = path.join(newFolderPath, newFileName);
+
+        fs.stat(newFolderPath, (err, stats) => {
+            if(err){
+                if (err.code === "ENOENT") {
+                    fs.mkdir(newFolderPath, {recursive: true}, (err) => {
+                        if (err) {
+                            return callback(err);
+                        }
+                        __moveFile(callback);
+                    });
+                }else{
+                    return callback(err);
+                }
+            }else{
+                __moveFile(callback);
+            }
+        });
+
+        function __moveFile(callback) {
+            fs.access(newFilePath, (err) => {
+                if (!err) {
+                    __removeFile(callback);
+                    return;
+                }
+
+                fs.copyFile(oldFilePath, newFilePath, (err) => {
+                    if (err) {
+                        return callback(err);
+                    }
+
+                    __removeFile(callback);
+                });
+            });
+
         }
-        const fileName = this.aliases[alias];
-        if (!fileName) {
-            return callback(new Error("The specified alias was not associated with any file"));
-        } else {
-            return fileName;
+
+        function __removeFile(callback) {
+            fs.unlink(oldFilePath, (err) => {
+                if (err) {
+                    return callback(err);
+                }
+
+                fs.readdir(oldFolderPath, (err, files) => {
+                    if (err) {
+                        return callback(err);
+                    }
+
+                    if (files.length === 0) {
+                        fs.rmdir(oldFolderPath, callback);
+                    }
+                });
+            });
         }
     }
-    ,
 });

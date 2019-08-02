@@ -344,7 +344,8 @@ $$.flow.describe("BricksManager", {
         fs.access(filePath, callback);
     },
     __getFileName: function (alias) {
-        return aliases[alias][aliases.length - 1];
+        const lastIndex = aliases[alias].length - 1;
+        return aliases[alias][lastIndex];
     },
     __streamToString: function (readStream, callback) {
         let str = '';

@@ -2,7 +2,6 @@ require("../../../psknode/bundles/pskruntime");
 require("../../../psknode/bundles/consoleTools");
 require("../../../psknode/bundles/psknode");
 require("../../../psknode/bundles/virtualMQ");
-const utils = require("./utils/utils");
 
 const edfs = require("edfs-brick-storage");
 const bar = require("bar");

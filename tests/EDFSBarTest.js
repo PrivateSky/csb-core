@@ -1,4 +1,3 @@
-require("../testBase");
 require("../../../psknode/bundles/pskruntime");
 require("../../../psknode/bundles/consoleTools");
 require("../../../psknode/bundles/psknode");
@@ -7,18 +6,19 @@ const utils = require("./utils/utils");
 
 const edfs = require("edfs-brick-storage");
 const bar = require("bar");
-const assert = require("double-check").assert;
+const double_check = require("../../double-check");
+const assert = double_check.assert;
 
-const createFsAdapter = bar.createFsBarWorker;
+const createFsAdapter = bar.createFsAdapter;
 
 const ArchiveConfigurator = bar.ArchiveConfigurator;
 
-ArchiveConfigurator.prototype.registerDiskAdapter("fsAdapter", createFsAdapter);
+ArchiveConfigurator.prototype.registerFsAdapter("fsAdapter", createFsAdapter);
 const archiveConfigurator = new ArchiveConfigurator();
-archiveConfigurator.setDiskAdapter("fsAdapter");
+archiveConfigurator.setFsAdapter("fsAdapter");
 archiveConfigurator.setBufferSize(256);
 
-const folders = ["fld/fld2", 'dot'];
+const folders = ["fld/fld2"];
 const files = [
     "fld/a.txt", "fld/fld2/b.txt"
 ];
@@ -28,9 +28,10 @@ const folderPath = "fld";
 let savePath = "dot";
 
 let PORT = 9090;
-const tempFolder = "../../../../tmp";
+const tempFolder = "../../tmp";
 
 const VirtualMQ = require("virtualmq");
+
 function createServer(callback) {
     let server = VirtualMQ.createVirtualMQ(PORT, tempFolder, undefined, (err, res) => {
         if (err) {
@@ -51,10 +52,10 @@ function createServer(callback) {
 }
 
 assert.callback("StoreBarInEDFSTest", (callback) => {
-    utils.ensureFilesExist(folders, files, text, (err) => {
+    double_check.ensureFilesExist(folders, files, text, (err) => {
         assert.true(err === null || typeof err === "undefined", "Received error");
 
-        utils.computeFoldersHashes([folderPath], (err, initialHashes) => {
+        double_check.computeFoldersHashes([folderPath], (err, initialHashes) => {
             assert.true(err === null || typeof err === "undefined", "Received error");
 
             createServer((err, server, url) => {
@@ -62,25 +63,24 @@ assert.callback("StoreBarInEDFSTest", (callback) => {
 
                 archiveConfigurator.setStorageProvider("EDFSBrickStorage", url);
                 const archive = new bar.Archive(archiveConfigurator);
+
                 archive.addFolder(folderPath, (err, mapDigest) => {
                     assert.true(err === null || typeof err === "undefined", "Failed to add folder");
                     assert.true(typeof mapDigest !== "undefined", "Did not receive mapDigest");
 
+                    double_check.deleteFoldersSync(folderPath);
                     archive.extractFolder(savePath, (err) => {
                         assert.true(err === null || typeof err === "undefined", "Failed to extract folder");
 
-                        utils.computeFoldersHashes([savePath], (err, decompressedHashes) => {
+                        double_check.computeFoldersHashes(folderPath, (err, decompressedHashes) => {
                             assert.true(err === null || typeof err === "undefined", "Failed to compute folders hashes");
-                            assert.true(utils.hashArraysAreEqual(initialHashes, decompressedHashes), "Files are not identical");
+                            assert.true(assert.hashesAreEqual(initialHashes, decompressedHashes), "Files are not identical");
 
                             server.close(err => {
                                 assert.true(err === null || typeof err === "undefined", "Failed to close server");
 
-                                utils.deleteFolders([folderPath, savePath], (err) => {
-                                    assert.true(err === null || typeof err === "undefined", "Failed to delete test folders");
-
-                                    callback();
-                                });
+                                double_check.deleteFoldersSync(folderPath);
+                                callback();
                             });
                         });
                     });

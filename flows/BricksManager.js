@@ -109,7 +109,7 @@ $$.flow.describe("BricksManager", {
                     aliases[alias] = [];
                 }
 
-                if(!aliases[alias].includes(fileHash)) {
+                if (!aliases[alias].includes(fileHash)) {
                     aliases[alias].push(fileHash);
                 }
 
@@ -197,14 +197,12 @@ $$.flow.describe("BricksManager", {
         });
     },
     __verifyFileName: function (fileName, callback) {
-        if (!fileName || typeof fileName != "string") {
-            callback(new Error("No fileId specified."));
-            return;
+        if (!fileName || typeof fileName !== "string") {
+            return callback(new Error("No fileId specified."));
         }
 
         if (fileName.length < folderNameSize) {
-            callback(new Error("FileId too small. " + fileName));
-            return;
+            return callback(new Error("FileId too small. " + fileName));
         }
 
         return true;
@@ -366,7 +364,7 @@ $$.flow.describe("BricksManager", {
         const newFilePath = path.join(newFolderPath, newFileName);
 
         fs.stat(newFolderPath, (err, stats) => {
-            if(err){
+            if (err) {
                 if (err.code === "ENOENT") {
                     fs.mkdir(newFolderPath, {recursive: true}, (err) => {
                         if (err) {
@@ -374,10 +372,10 @@ $$.flow.describe("BricksManager", {
                         }
                         __moveFile(callback);
                     });
-                }else{
+                } else {
                     return callback(err);
                 }
-            }else{
+            } else {
                 __moveFile(callback);
             }
         });

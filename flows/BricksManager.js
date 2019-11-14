@@ -32,11 +32,14 @@ $$.flow.describe("BricksManager", {
 
         const folderName = path.join(rootfolder, fileName.substr(0, folderNameSize));
 
-        const serial = this.serial(() => {
+        this.__ensureFolderStructure(folderName, (err) => {
+            if (err) {
+                return callback(err);
+            }
+
+            this.__writeFile(readFileStream, folderName, fileName, callback);
         });
 
-        serial.__ensureFolderStructure(folderName, serial.__progress);
-        serial.__writeFile(readFileStream, folderName, fileName, callback);
     },
     read: function (fileName, writeFileStream, callback) {
         if (!this.__verifyFileName(fileName, callback)) {
@@ -45,6 +48,7 @@ $$.flow.describe("BricksManager", {
 
         const folderPath = path.join(rootfolder, fileName.substr(0, folderNameSize));
         const filePath = path.join(folderPath, fileName);
+
         this.__verifyFileExistence(filePath, (err, result) => {
             if (!err) {
                 this.__readFile(writeFileStream, filePath, callback);
@@ -225,10 +229,9 @@ $$.flow.describe("BricksManager", {
                     callback(undefined, hash.digest("hex"));
                 });
 
-                writeStream.on("error", function () {
+                writeStream.on("error", (err) => {
                     writeStream.close();
-                    readStream.close();
-                    callback(...arguments);
+                    callback(err);
                 });
 
                 readStream.pipe(writeStream);

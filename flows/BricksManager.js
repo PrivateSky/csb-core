@@ -6,7 +6,7 @@ const PskHash = require('pskcrypto').PskHash;
 const folderNameSize = process.env.FOLDER_NAME_SIZE || 5;
 const FILE_SEPARATOR = '-';
 let rootfolder;
-let aliases = {};
+let aliasesPath;
 
 $$.flow.describe("BricksManager", {
     init: function (rootFolder, callback) {
@@ -15,8 +15,9 @@ $$.flow.describe("BricksManager", {
             return;
         }
         rootFolder = path.resolve(rootFolder);
-        this.__ensureFolderStructure(rootFolder, function (err, path) {
+        this.__ensureFolderStructure(rootFolder, function (err, pth) {
             rootfolder = rootFolder;
+            aliasesPath = path.join(rootfolder, "aliases");
             callback(err, rootFolder);
         });
     },
@@ -53,7 +54,7 @@ $$.flow.describe("BricksManager", {
             if (!err) {
                 this.__readFile(writeFileStream, filePath, callback);
             } else {
-                callback(new Error("No file found."));
+                callback(new Error(`File ${filePath} was not found.`));
             }
         });
     },
@@ -70,12 +71,23 @@ $$.flow.describe("BricksManager", {
                 return callback(new Error("No alias was provided"));
             }
 
-            if (!aliases[alias]) {
-                aliases[alias] = [];
-            }
+            this.__readAliases((err, aliases) => {
+                if (err) {
+                    return callback(err);
+                }
 
-            aliases[alias].push(fileName);
-            callback();
+                if (!aliases[alias]) {
+                    aliases[alias] = [];
+                }
+
+                if(!aliases[alias].includes(fileName)) {
+                    aliases[alias].push(fileName);
+                    this.__writeAliases(aliases, callback);
+                }
+
+                callback();
+            });
+
         });
     },
     writeWithHash: function (fileHash, readStream, callback) {
@@ -109,21 +121,35 @@ $$.flow.describe("BricksManager", {
                     return callback(err);
                 }
 
-                if (typeof aliases[alias] === "undefined") {
-                    aliases[alias] = [];
-                }
+                this.__readAliases((err, aliases) => {
+                    if (err) {
+                        return callback(err);
+                    }
 
-                if (!aliases[alias].includes(fileHash)) {
-                    aliases[alias].push(fileHash);
-                }
+                    if (typeof aliases[alias] === "undefined") {
+                        aliases[alias] = [];
+                    }
 
-                callback();
+                    if (!aliases[alias].includes(fileHash)) {
+                        aliases[alias].push(fileHash);
+                        this.__writeAliases(aliases, callback);
+                    }else{
+                        callback();
+                    }
+                });
             });
         });
     },
     readWithAlias: function (alias, writeStream, callback) {
-        const fileName = this.__getFileName(alias);
-        this.read(fileName, writeStream, callback);
+        this.__readAliases((err, aliases) => {
+            if (err) {
+                return callback(err);
+            }
+
+            const fileName = this.__getFileName(aliases, alias);
+            this.read(fileName, writeStream, callback);
+        });
+
     },
     readVersion: function (fileName, fileVersion, writeFileStream, callback) {
         if (!this.__verifyFileName(fileName, callback)) {
@@ -336,17 +362,30 @@ $$.flow.describe("BricksManager", {
 
         readStream.pipe(writeFileStream);
     },
-    __progress: function (err, result) {
-        if (err) {
-            console.error(err);
-        }
-    },
     __verifyFileExistence: function (filePath, callback) {
         fs.access(filePath, callback);
     },
-    __getFileName: function (alias) {
+    __getFileName: function (aliases, alias) {
         const lastIndex = aliases[alias].length - 1;
         return aliases[alias][lastIndex];
+    },
+    __writeAliases: function (aliases, callback) {
+        fs.writeFile(aliasesPath, JSON.stringify(aliases), callback);
+    },
+    __readAliases: function (callback) {
+        fs.readFile(aliasesPath, (err, aliases) => {
+            if (err) {
+                if (err.code === "ENOENT") {
+                    return callback(undefined, {});
+                }else{
+                    return callback(err);
+                }
+            }
+            callback(undefined, JSON.parse(aliases.toString()));
+        });
+    },
+    __checkIfFileHasAlias: function (aliases, alias, fileName) {
+        return !!aliases[alias].find(el => el === fileName);
     },
     __streamToString: function (readStream, callback) {
         let str = '';

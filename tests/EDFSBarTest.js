@@ -2,11 +2,11 @@ require("../../../psknode/bundles/pskruntime");
 require("../../../psknode/bundles/consoleTools");
 require("../../../psknode/bundles/psknode");
 require("../../../psknode/bundles/virtualMQ");
+const utils = require("./utils/utils");
 
 const edfs = require("edfs-brick-storage");
 const bar = require("bar");
-const double_check = require("../../double-check");
-const assert = double_check.assert;
+const assert = require("../../double-check").assert;
 
 const createFsAdapter = bar.createFsAdapter;
 
@@ -17,7 +17,7 @@ const archiveConfigurator = new ArchiveConfigurator();
 archiveConfigurator.setFsAdapter("fsAdapter");
 archiveConfigurator.setBufferSize(256);
 
-const folders = ["fld/fld2"];
+const folders = ["fld/fld2", 'dot'];
 const files = [
     "fld/a.txt", "fld/fld2/b.txt"
 ];
@@ -30,7 +30,6 @@ let PORT = 9090;
 const tempFolder = "../../tmp";
 
 const VirtualMQ = require("virtualmq");
-
 function createServer(callback) {
     let server = VirtualMQ.createVirtualMQ(PORT, tempFolder, undefined, (err, res) => {
         if (err) {
@@ -51,10 +50,10 @@ function createServer(callback) {
 }
 
 assert.callback("StoreBarInEDFSTest", (callback) => {
-    double_check.ensureFilesExist(folders, files, text, (err) => {
+    utils.ensureFilesExist(folders, files, text, (err) => {
         assert.true(err === null || typeof err === "undefined", "Received error");
 
-        double_check.computeFoldersHashes([folderPath], (err, initialHashes) => {
+        utils.computeFoldersHashes([folderPath], (err, initialHashes) => {
             assert.true(err === null || typeof err === "undefined", "Received error");
 
             createServer((err, server, url) => {
@@ -63,23 +62,27 @@ assert.callback("StoreBarInEDFSTest", (callback) => {
                 archiveConfigurator.setStorageProvider("EDFSBrickStorage", url);
                 const archive = new bar.Archive(archiveConfigurator);
 
+                console.log("about to add folder");
                 archive.addFolder(folderPath, (err, mapDigest) => {
+                    console.log("added folder", mapDigest);
                     assert.true(err === null || typeof err === "undefined", "Failed to add folder");
                     assert.true(typeof mapDigest !== "undefined", "Did not receive mapDigest");
 
-                    double_check.deleteFoldersSync(folderPath);
                     archive.extractFolder(savePath, (err) => {
                         assert.true(err === null || typeof err === "undefined", "Failed to extract folder");
 
-                        double_check.computeFoldersHashes(folderPath, (err, decompressedHashes) => {
+                        utils.computeFoldersHashes([savePath], (err, decompressedHashes) => {
                             assert.true(err === null || typeof err === "undefined", "Failed to compute folders hashes");
-                            assert.true(assert.hashesAreEqual(initialHashes, decompressedHashes), "Files are not identical");
+                            assert.true(utils.hashArraysAreEqual(initialHashes, decompressedHashes), "Files are not identical");
 
                             server.close(err => {
                                 assert.true(err === null || typeof err === "undefined", "Failed to close server");
 
-                                double_check.deleteFoldersSync(folderPath);
-                                callback();
+                                utils.deleteFolders([folderPath, savePath], (err) => {
+                                    assert.true(err === null || typeof err === "undefined", "Failed to delete test folders");
+
+                                    callback();
+                                });
                             });
                         });
                     });

@@ -1,8 +1,6 @@
 const path = require("path");
 const fs = require("fs");
-const crypto = require("crypto");
-const PskHash = require('pskcrypto').PskHash;
-
+const crypto = require("pskcrypto");
 const folderNameSize = process.env.FOLDER_NAME_SIZE || 5;
 const FILE_SEPARATOR = '-';
 let rootfolder;
@@ -241,7 +239,8 @@ $$.flow.describe("BricksManager", {
         fs.mkdir(folder, {recursive: true}, callback);
     },
     __writeFile: function (readStream, folderPath, fileName, callback) {
-        const hash = require("crypto").createHash("sha256");
+        const PskHash = crypto.PskHash;
+        const hash = new PskHash();
         const filePath = path.join(folderPath, fileName);
         fs.access(filePath, (err) => {
             if (err) {

@@ -1,5 +1,6 @@
 const path = require("path");
 const fs = require("fs");
+const endOfLine = require("os").EOL;
 const crypto = require("pskcrypto");
 const folderNameSize = process.env.FOLDER_NAME_SIZE || 5;
 const FILE_SEPARATOR = '-';
@@ -56,8 +57,8 @@ $$.flow.describe("BricksManager", {
             }
         });
     },
-    addAlias: function (fileName, readStream, callback) {
-        if (!this.__verifyFileName(fileName, callback)) {
+    addAlias: function (fileHash, readStream, callback) {
+        if (!this.__verifyFileName(fileHash, callback)) {
             return;
         }
 
@@ -69,21 +70,13 @@ $$.flow.describe("BricksManager", {
                 return callback(new Error("No alias was provided"));
             }
 
-            this.__readAliases((err, aliases) => {
+            const filePath = path.join(rootfolder, alias);
+            this.__verifyFileExistence(filePath, (err) => {
                 if (err) {
-                    return callback(err);
+                    fs.writeFile(filePath, fileHash + endOfLine, callback);
+                }else {
+                    fs.appendFile(filePath, fileHash + endOfLine, callback);
                 }
-
-                if (!aliases[alias]) {
-                    aliases[alias] = [];
-                }
-
-                if(!aliases[alias].includes(fileName)) {
-                    aliases[alias].push(fileName);
-                    this.__writeAliases(aliases, callback);
-                }
-
-                callback();
             });
 
         });
@@ -162,6 +155,18 @@ $$.flow.describe("BricksManager", {
             } else {
                 callback(new Error("No file found."));
             }
+        });
+    },
+    readVersions: function (alias,  callback) {
+        const filePath = path.join(rootfolder, alias);
+        fs.readFile(filePath, (err, fileHashes) => {
+            if (err) {
+                if (err.code === "ENOENT") {
+                    return callback(undefined, []);
+                }
+                return callback(err);
+            }
+            callback(undefined, fileHashes.toString().trimEnd().split(endOfLine));
         });
     },
     getVersionsForFile: function (fileName, callback) {

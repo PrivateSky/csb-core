@@ -1,5 +1,7 @@
-const fs = require("fs");
-const path = require("path");
+const fsModule = "fs";
+const fs = require(fsModule);
+const pathModule = "path";
+const path = require(pathModule);
 const crypto = require("crypto");
 const AsyncDispatcher = require("./AsyncDispatcher");
 

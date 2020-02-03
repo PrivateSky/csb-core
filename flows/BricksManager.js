@@ -1,6 +1,9 @@
-const path = require("path");
-const fs = require("fs");
-const endOfLine = require("os").EOL;
+const pathModule = "path";
+const path = require(pathModule);
+const fsModule = "fs";
+const fs = require(fsModule);
+const osModule = "os";
+const endOfLine = require(osModule).EOL;
 const crypto = require("pskcrypto");
 const folderNameSize = process.env.FOLDER_NAME_SIZE || 5;
 const FILE_SEPARATOR = '-';

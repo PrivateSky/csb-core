@@ -1,5 +1,7 @@
-const fs = require("fs");
-const path = require('path');
+const fsModule = "fs";
+const fs = require(fsModule);
+const pathModule = "path";
+const path = require(pathModule);
 //TODO: unused const
 // const crypto = require("pskcrypto");
 

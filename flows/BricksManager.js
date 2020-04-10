@@ -10,17 +10,10 @@ const FILE_SEPARATOR = '-';
 let brickStorageFolder;
 
 $$.flow.describe("BricksManager", {
-    init: function (rootFolder, callback) {
-
-        if (!rootFolder) {
-            callback(new Error("No root folder specified!"));
-            return;
-        }
+    init: function (rootFolder) {
         rootFolder = path.resolve(rootFolder);
-        this.__ensureFolderStructure(rootFolder, (err, pth) => {
-            brickStorageFolder = rootFolder;
-            callback(err, rootFolder);
-        });
+        brickStorageFolder = rootFolder;
+        this.__ensureFolderStructure(rootFolder);
     },
     write: function (fileName, readFileStream, callback) {
         if (!this.__verifyFileName(fileName, callback)) {
@@ -107,7 +100,18 @@ $$.flow.describe("BricksManager", {
         return true;
     },
     __ensureFolderStructure: function (folder, callback) {
-        fs.mkdir(folder, {recursive: true}, callback);
+        try{
+            fs.mkdirSync(folder, {recursive: true});
+        }catch(err){
+            if(callback){
+                callback(err);
+            }else{
+                throw err;
+            }
+        }
+        if(callback){
+            callback();
+        }
     },
     __writeFile: function (readStream, folderPath, fileName, callback) {
         const PskHash = crypto.PskHash;

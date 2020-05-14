@@ -32,7 +32,7 @@ const tempFolder = "../../tmp";
 
 const VirtualMQ = require("virtualmq");
 function createServer(callback) {
-    let server = VirtualMQ.createVirtualMQ(PORT, tempFolder, undefined, (err, res) => {
+    let server = VirtualMQ.createPskWebServer(PORT, tempFolder, undefined, (err, res) => {
         if (err) {
             console.log("Failed to create VirtualMQ server on port ", PORT);
             console.log("Trying again...");

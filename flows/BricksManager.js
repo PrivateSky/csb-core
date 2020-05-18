@@ -2,11 +2,8 @@ const pathModule = "path";
 const path = require(pathModule);
 const fsModule = "fs";
 const fs = require(fsModule);
-const osModule = "os";
-const endOfLine = require(osModule).EOL;
 const crypto = require("pskcrypto");
 const folderNameSize = process.env.FOLDER_NAME_SIZE || 5;
-const FILE_SEPARATOR = '-';
 let brickStorageFolder;
 
 $$.flow.describe("BricksManager", {
@@ -50,42 +47,6 @@ $$.flow.describe("BricksManager", {
             } else {
                 callback(new Error(`File ${filePath} was not found.`));
             }
-        });
-    },
-    addAlias: function (fileHash, readStream, callback) {
-        if (!this.__verifyFileName(fileHash, callback)) {
-            return;
-        }
-
-        this.__streamToString(readStream, (err, alias) => {
-            if (err) {
-                return callback(err);
-            }
-            if (!alias) {
-                return callback(new Error("No alias was provided"));
-            }
-
-            const filePath = path.join(brickStorageFolder, alias);
-            this.__verifyFileExistence(filePath, (err) => {
-                if (err) {
-                    fs.writeFile(filePath, fileHash + endOfLine, callback);
-                } else {
-                    fs.appendFile(filePath, fileHash + endOfLine, callback);
-                }
-            });
-
-        });
-    },
-    readVersions: function (alias, callback) {
-        const filePath = path.join(brickStorageFolder, alias);
-        fs.readFile(filePath, (err, fileHashes) => {
-            if (err) {
-                if (err.code === "ENOENT") {
-                    return callback(undefined, []);
-                }
-                return callback(err);
-            }
-            callback(undefined, fileHashes.toString().trimEnd().split(endOfLine));
         });
     },
     __verifyFileName: function (fileName, callback) {
@@ -151,17 +112,5 @@ $$.flow.describe("BricksManager", {
     },
     __verifyFileExistence: function (filePath, callback) {
         fs.access(filePath, callback);
-    },
-    __streamToString: function (readStream, callback) {
-        let str = '';
-        readStream.on("data", (chunk) => {
-            str += chunk;
-        });
-
-        readStream.on("end", () => {
-            callback(undefined, str);
-        });
-
-        readStream.on("error", callback);
     }
 });

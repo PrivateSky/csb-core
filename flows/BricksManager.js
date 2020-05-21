@@ -49,6 +49,49 @@ $$.flow.describe("BricksManager", {
             }
         });
     },
+
+    readMultipleBricks: function (brickHashes, writeStream, callback) {
+        this.__writeMultipleBricksToStream(brickHashes, 0, writeStream, callback);
+    },
+
+    __writeBrickDataToStream: function (brickData, writeStream, callback) {
+        const brickSize = Buffer.alloc(4);
+        brickSize.writeUInt32BE(brickData.length);
+        writeStream.write(brickSize, (err) => {
+            if (err) {
+                return callback(err);
+            }
+
+            writeStream.write(brickData, callback);
+        });
+    },
+    __writeMultipleBricksToStream: function (brickHashes, brickIndex, writeStream, callback) {
+        const brickHash = brickHashes[brickIndex];
+        this.__readBrick(brickHash, (err, brickData) => {
+            this.__writeBrickDataToStream(brickData, writeStream, (err) => {
+                if (err) {
+                    return callback(err);
+                }
+                brickIndex++;
+                if (brickIndex === brickHashes.length) {
+                    callback();
+                } else {
+                    this.__writeMultipleBricksToStream(brickHashes, brickIndex, writeStream, callback);
+                }
+            });
+        });
+    },
+    __readBrick: function (brickHash, callback) {
+        const folderPath = path.join(brickStorageFolder, brickHash.substr(0, folderNameSize));
+        const filePath = path.join(folderPath, brickHash);
+        this.__verifyFileExistence(filePath, (err) => {
+            if (err) {
+                return callback(err);
+            }
+
+            fs.readFile(filePath, callback);
+        });
+    },
     __verifyFileName: function (fileName, callback) {
         if (!fileName || typeof fileName !== "string") {
             return callback(new Error("No fileId specified."));
@@ -61,16 +104,16 @@ $$.flow.describe("BricksManager", {
         return true;
     },
     __ensureFolderStructure: function (folder, callback) {
-        try{
+        try {
             fs.mkdirSync(folder, {recursive: true});
-        }catch(err){
-            if(callback){
+        } catch (err) {
+            if (callback) {
                 callback(err);
-            }else{
+            } else {
                 throw err;
             }
         }
-        if(callback){
+        if (callback) {
             callback();
         }
     },
@@ -84,7 +127,7 @@ $$.flow.describe("BricksManager", {
                     hash.update(data);
                 });
 
-                const writeStream = fs.createWriteStream(filePath, {mode: 0o444});
+                const writeStream = fs.createWriteStream(filePath, {mode: 0o777});
 
                 writeStream.on("finish", () => {
                     callback(undefined, hash.digest("hex"));

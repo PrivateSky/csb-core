@@ -140,8 +140,7 @@ $$.flow.describe("BricksManager", {
 
                 readStream.pipe(writeStream);
             } else {
-                callback();
-
+                callback(undefined, fileName);
             }
         });
     },

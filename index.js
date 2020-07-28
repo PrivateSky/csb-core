@@ -1,3 +1,2 @@
-module.exports = require("./lib/EDFSMiddleware");
-
-
+module.exports.BrickStorageMiddleware = require("./lib/BrickStorageMiddleware");
+module.exports.AnchoringMiddleware = require("./lib/AnchoringMiddleware");

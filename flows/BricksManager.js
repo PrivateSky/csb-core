@@ -5,6 +5,7 @@ const fs = require(fsModule);
 const crypto = require("pskcrypto");
 const folderNameSize = process.env.FOLDER_NAME_SIZE || 5;
 let brickStorageFolder;
+const HASH_ALGORITHM = "sha256";
 
 $$.flow.describe("BricksManager", {
     init: function (rootFolder) {
@@ -12,26 +13,27 @@ $$.flow.describe("BricksManager", {
         brickStorageFolder = rootFolder;
         this.__ensureFolderStructure(rootFolder);
     },
-    write: function (fileName, readFileStream, callback) {
-        if (!this.__verifyFileName(fileName, callback)) {
-            return;
-        }
-
-        if (!readFileStream || !readFileStream.pipe || typeof readFileStream.pipe !== "function") {
-            callback(new Error("Something wrong happened"));
-            return;
-        }
-
-        const folderName = path.join(brickStorageFolder, fileName.substr(0, folderNameSize));
-
-        this.__ensureFolderStructure(folderName, (err) => {
+    write: function (readFileStream, callback) {
+        this.__convertStreamToBuffer(readFileStream, (err, brickData) => {
             if (err) {
                 return callback(err);
             }
+            const fileName = crypto.hash(HASH_ALGORITHM, brickData, "hex");
+            if (!this.__verifyFileName(fileName, callback)) {
+                return;
+            }
 
-            this.__writeFile(readFileStream, folderName, fileName, callback);
+
+            const folderName = path.join(brickStorageFolder, fileName.substr(0, folderNameSize));
+
+            this.__ensureFolderStructure(folderName, (err) => {
+                if (err) {
+                    return callback(err);
+                }
+
+                this.__writeFile(brickData, folderName, fileName, callback);
+            });
         });
-
     },
     read: function (fileName, writeFileStream, callback) {
         if (!this.__verifyFileName(fileName, callback)) {
@@ -120,28 +122,13 @@ $$.flow.describe("BricksManager", {
             callback();
         }
     },
-    __writeFile: function (readStream, folderPath, fileName, callback) {
-        const PskHash = crypto.PskHash;
-        const hash = new PskHash();
+    __writeFile: function (brickData, folderPath, fileName, callback) {
         const filePath = path.join(folderPath, fileName);
         fs.access(filePath, (err) => {
             if (err) {
-                readStream.on('data', (data) => {
-                    hash.update(data);
+                fs.writeFile(filePath, brickData, (err) => {
+                    callback(err, fileName)
                 });
-
-                const writeStream = fs.createWriteStream(filePath, {mode: 0o777});
-
-                writeStream.on("finish", () => {
-                    callback(undefined, hash.digest("hex"));
-                });
-
-                writeStream.on("error", (err) => {
-                    writeStream.close();
-                    callback(err);
-                });
-
-                readStream.pipe(writeStream);
             } else {
                 callback(undefined, fileName);
             }
@@ -157,5 +144,19 @@ $$.flow.describe("BricksManager", {
     },
     __verifyFileExistence: function (filePath, callback) {
         fs.access(filePath, callback);
+    },
+    __convertStreamToBuffer: function (readStream, callback){
+        let brickData = Buffer.alloc(0);
+        readStream.on("data", (chunk) => {
+            brickData = Buffer.concat([brickData, chunk]);
+        });
+
+        readStream.on("error", (err) => {
+            return callback(err);
+        });
+
+        readStream.on("end", () => {
+            return callback(undefined, brickData);
+        });
     }
 });

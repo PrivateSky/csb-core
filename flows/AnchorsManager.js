@@ -83,12 +83,12 @@ $$.flow.describe("AnchorsManager", {
             }
 
             const readOptions = {
-                buffer: Buffer.alloc(options.fileSize),
+                buffer: $$.Buffer.alloc(options.fileSize),
                 offset: 0,
                 length: options.fileSize,
                 position: null
             };
-            fs.read(fd, Buffer.alloc(options.fileSize), 0, options.fileSize, null, (err, bytesRead, buffer) => {
+            fs.read(fd, $$.Buffer.alloc(options.fileSize), 0, options.fileSize, null, (err, bytesRead, buffer) => {
                 if (err) {
                     return callback(err);
                 }
